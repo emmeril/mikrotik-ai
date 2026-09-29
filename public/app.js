@@ -1,6 +1,6 @@
 window.consoleApp = function () {
   return {
-    menuOpen: false,
+    menuOpen: false, routerPanelOpen: false, theme: 'light', submittedPrompt: '',
     authReady: false, user: null, authMode: 'login', authForm: { name: '', email: '', password: '' },
     aiReady: false, routerStoreReady: false,
     busy: '', error: '', notice: '',
@@ -10,6 +10,11 @@ window.consoleApp = function () {
     templateLabels: { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' },
     showConfirm: false, confirmText: '', results: null, planApplied: false,
     async init() {
+      const savedTheme = localStorage.getItem('mikrotik-ai-theme');
+      this.theme = savedTheme === 'dark' || savedTheme === 'light'
+        ? savedTheme
+        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.dataset.theme = this.theme;
       try {
         const response = await fetch('/api/status');
         const status = await response.json();
@@ -20,6 +25,17 @@ window.consoleApp = function () {
       }
       catch { this.error = 'Status server tidak dapat dibaca.'; }
       finally { this.authReady = true; }
+    },
+    toggleTheme() {
+      this.theme = this.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = this.theme;
+      localStorage.setItem('mikrotik-ai-theme', this.theme);
+    },
+    newConversation() {
+      this.prompt = ''; this.submittedPrompt = ''; this.plan = null; this.preflight = null;
+      this.results = null; this.planApplied = false; this.error = ''; this.notice = '';
+      this.menuOpen = false;
+      this.$nextTick(() => document.getElementById('prompt')?.focus());
     },
     async request(url, body, method = 'POST') {
       const options = { method, headers: { 'content-type': 'application/json', 'x-requested-with': 'mikrotik-ai-console' } };
@@ -45,7 +61,7 @@ window.consoleApp = function () {
     async logout() {
       await this.run('logout', async () => {
         await this.request('/api/auth/logout', {});
-        this.user = null; this.savedRouters = []; this.selectedRouterId = ''; this.routerInfo = null; this.plan = null; this.notice = '';
+        this.user = null; this.savedRouters = []; this.selectedRouterId = ''; this.routerInfo = null; this.plan = null; this.notice = ''; this.routerPanelOpen = false;
       });
     },
     async loadRouters() {
@@ -97,20 +113,22 @@ window.consoleApp = function () {
     get canApply() { return Boolean(this.routerInfo && this.testedConnection === this.connectionKey()); },
     async generate() {
       await this.run('generate', async () => {
+        this.submittedPrompt = this.prompt.trim();
         this.plan = await this.request('/api/plan/generate', { prompt: this.prompt, version: this.routerInfo?.version, ...this.connectionPayload() });
         this.results = null; this.preflight = null; this.planApplied = false;
         this.notice = 'Rencana siap ditinjau.';
-        this.$nextTick(() => document.getElementById('plan').scrollIntoView({ behavior: 'smooth' }));
+        this.$nextTick(() => document.getElementById('plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       });
     },
     openTemplate(type) { this.templateType = type; this.templateValues = {}; this.error = ''; },
     async createTemplate() {
       await this.run('template', async () => {
+        this.submittedPrompt = `Formulir cepat: ${this.templateLabels[this.templateType]}`;
         this.plan = await this.request('/api/plan/template', { type: this.templateType, values: this.templateValues });
         this.results = null; this.preflight = null; this.planApplied = false;
         this.templateType = null;
         this.notice = 'Rencana siap ditinjau.';
-        this.$nextTick(() => document.getElementById('plan').scrollIntoView({ behavior: 'smooth' }));
+        this.$nextTick(() => document.getElementById('plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       });
     },
     async copyScript() {
