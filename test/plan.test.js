@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compilePlan } from '../lib/plan.js';
+import { compilePlan, isDiagnosticPlan } from '../lib/plan.js';
 
 test('rencana manual tanpa aksi tetap bisa ditampilkan', () => {
   const plan = compilePlan({ summary: 'Butuh alamat IP tujuan', manual: 'Masukkan IP tujuan sebelum membuat aturan.', actions: [] });
@@ -21,8 +21,17 @@ test('perintah CLI mengutip nilai agar tetap satu argumen', () => {
 test('monitor traffic menghasilkan aksi read-only dengan parameter once', () => {
   const plan = compilePlan({ summary: 'Cek traffic', actions: [{ type: 'monitor_interface_traffic', interface: 'ether1' }] });
   assert.equal(plan.actions[0].kind, 'read');
+  assert.equal(isDiagnosticPlan(plan), true);
   assert.deepEqual(plan.actions[0].sentence, ['/interface/monitor-traffic', '=interface=ether1', '=once=']);
   assert.equal(plan.script, '/interface monitor-traffic "ether1" once');
+});
+
+test('rencana campuran tetap memerlukan konfirmasi perubahan', () => {
+  const plan = compilePlan({ summary: 'Periksa lalu ubah', actions: [
+    { type: 'monitor_interface_traffic', interface: 'ether1' },
+    { type: 'set_identity', name: 'Router Kantor' }
+  ] });
+  assert.equal(isDiagnosticPlan(plan), false);
 });
 
 test('perintah RouterOS umum mendukung konfigurasi DHCP', () => {

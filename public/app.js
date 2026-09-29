@@ -9,7 +9,7 @@ window.consoleApp = function () {
     routerInfo: null, testedConnection: '', prompt: '', plan: null, preflight: null, templateType: null, templateValues: {},
     conversationId: '', conversations: [], previousEntries: [], historyReady: false,
     templateLabels: { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' },
-    showConfirm: false, confirmText: '', results: null, planApplied: false,
+    showConfirm: false, confirmAccepted: false, results: null, planApplied: false,
     async init() {
       const savedTheme = localStorage.getItem('mikrotik-ai-theme');
       this.theme = savedTheme === 'dark' || savedTheme === 'light'
@@ -159,7 +159,7 @@ window.consoleApp = function () {
       this.busy = kind; this.error = ''; this.notice = '';
       try { await task(); } catch (error) {
         this.error = error.message;
-        if (error.payload?.preflight) { this.preflight = error.payload.preflight; this.showConfirm = false; this.confirmText = ''; }
+        if (error.payload?.preflight) { this.preflight = error.payload.preflight; this.showConfirm = false; this.confirmAccepted = false; }
       }
       finally { this.busy = ''; }
     },
@@ -186,6 +186,7 @@ window.consoleApp = function () {
     async saveRouter() { await this.connectRouter(true); },
     connectionKey() { return JSON.stringify({ selectedRouterId: this.selectedRouterId, connection: this.connection }); },
     get canApply() { return Boolean(this.routerInfo && this.testedConnection === this.connectionKey()); },
+    get isDiagnosticPlan() { return Boolean(this.plan?.actions?.length && this.plan.actions.every(action => action.kind === 'read')); },
     async generate() {
       const requestedPrompt = this.prompt.trim();
       const previous = this.plan && this.submittedPrompt ? { prompt: this.submittedPrompt, plan: { ...this.plan, historyOnly: true } } : null;
@@ -222,8 +223,8 @@ window.consoleApp = function () {
     },
     async applyPlan() {
       await this.run('apply', async () => {
-        const data = await this.request('/api/plan/apply', { id: this.plan.id, confirm: this.confirmText, ...this.connectionPayload() });
-        this.showConfirm = false; this.confirmText = '';
+        const data = await this.request('/api/plan/apply', { id: this.plan.id, confirmed: this.isDiagnosticPlan || this.confirmAccepted, ...this.connectionPayload() });
+        this.showConfirm = false; this.confirmAccepted = false;
         this.preflight = data.preflight; this.results = data.results;
         const failed = data.results.find(item => !item.ok);
         if (failed) {

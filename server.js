@@ -3,7 +3,7 @@ import express from 'express';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { compilePlan } from './lib/plan.js';
+import { compilePlan, isDiagnosticPlan } from './lib/plan.js';
 import { connectRouter } from './lib/routeros.js';
 import { generateRouterPlan, reviewRouterPlan } from './lib/gemini.js';
 import { deleteRouter, getRouter, listRouters, saveRouter as saveRouterProfile } from './lib/router-store.js';
@@ -185,8 +185,8 @@ app.post('/api/plan/apply', async (req, res) => {
   try {
     const entry = getPlanEntry(req.body.id, req.user.id);
     const plan = entry.plan;
-    if (req.body.confirm !== 'TERAPKAN') throw new Error('Konfirmasi penerapan tidak valid.');
     if (!plan.actions.length) throw new Error('Rencana ini hanya berisi panduan manual.');
+    if (!isDiagnosticPlan(plan) && req.body.confirmed !== true) throw new Error('Konfirmasi penerapan tidak valid.');
     client = await connectRouter(await resolveConnection(req.body, req.user.id));
     const snapshot = await collectRouterSnapshot(client);
     const configurationChanged = Boolean(entry.baselineFingerprint && entry.baselineFingerprint !== snapshotFingerprint(snapshot));

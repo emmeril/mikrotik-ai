@@ -59,6 +59,7 @@ button{color:inherit}
 button:not(:disabled),select:not(:disabled),input[type="checkbox"]:not(:disabled){cursor:pointer}
 button:disabled{cursor:not-allowed;opacity:.5}
 [x-cloak]{display:none!important}
+.is-hidden{display:none!important}
 .skip-link{position:fixed;z-index:200;left:16px;top:-60px;padding:10px 14px;background:var(--text);color:var(--surface);border-radius:6px}
 .skip-link:focus{top:12px}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
@@ -256,6 +257,9 @@ pre{max-width:100%;overflow:auto;border-radius:7px;background:var(--code);color:
 .template-tabs button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
 .dialog-head{padding:20px 24px}
 .dialog-copy{color:var(--muted)}
+.dialog>.confirmation-check{display:flex;min-height:44px;align-items:flex-start;gap:10px;padding:11px 12px;border:1px solid var(--line-strong);border-radius:7px;background:var(--surface-soft);cursor:pointer}
+.confirmation-check input{flex:0 0 auto;margin-top:1px}
+.confirmation-check span{line-height:1.45}
 .dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding:16px 24px;border-top:1px solid var(--line)}
 
 @media(min-width:1001px){
