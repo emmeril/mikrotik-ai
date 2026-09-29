@@ -49,7 +49,11 @@
         </template>
       </nav>
       <div class="sidebar-spacer"></div>
-      <button class="router-context" type="button" @click="routerPanelOpen=true; menuOpen=false; $nextTick(() => $refs.routerClose?.focus())">
+      <button class="sidebar-guide-button" type="button" @click="guidePanelOpen=true; routerPanelOpen=false; menuOpen=false; $nextTick(() => $refs.guideClose?.focus())">
+        <span class="guide-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5z"></path><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5z"></path></svg></span>
+        <span><strong>GUIDE</strong><small>Router jarak jauh</small></span>
+      </button>
+      <button class="router-context" type="button" @click="routerPanelOpen=true; guidePanelOpen=false; menuOpen=false; $nextTick(() => $refs.routerClose?.focus())">
         <span class="router-context-icon" aria-hidden="true">R</span><span><strong x-text="routerInfo?.identity || 'Hubungkan router'"></strong><small x-text="routerInfo ? 'RouterOS ' + routerInfo.version : 'Koneksi belum disiapkan'"></small></span><span class="connection-indicator" :class="{'is-online': routerInfo}" aria-hidden="true"></span>
       </button>
       <div class="sidebar-account"><span class="user-avatar" x-text="user?.name?.slice(0,1).toUpperCase()"></span><span><strong x-text="user?.name"></strong><small x-text="user?.email"></small></span><button class="icon-button" type="button" @click="logout()" :disabled="busy === 'logout'" aria-label="Keluar">↪</button></div>
@@ -134,6 +138,45 @@
         <div class="router-summary" x-show="routerInfo"><div><small>IDENTITY</small><strong x-text="routerInfo?.identity"></strong></div><div><small>VERSI</small><strong x-text="routerInfo?.version"></strong></div><div><small>BOARD</small><strong x-text="routerInfo?.board"></strong></div><div><small>UPTIME</small><strong x-text="routerInfo?.uptime"></strong></div></div>
       </div>
       <footer class="drawer-actions"><button class="button button-secondary" type="button" @click="testConnection()" :disabled="busy !== ''" x-text="busy === 'test' ? 'Menghubungkan...' : 'Tes koneksi'"></button><button class="button button-primary" type="button" @click="saveRouter()" :disabled="busy !== '' || !routerStoreReady || !routerName.trim()" x-text="busy === 'save-router' ? 'Menyimpan...' : (selectedRouterId ? 'Simpan perubahan' : 'Simpan router')"></button></footer>
+    </section>
+  </div>
+
+  <div class="drawer-layer" x-show="guidePanelOpen" @keydown.escape.window="guidePanelOpen=false" @click.self="guidePanelOpen=false">
+    <section class="router-drawer guide-drawer" role="dialog" aria-modal="true" aria-labelledby="guide-title">
+      <header class="drawer-head"><div><small>GUIDE</small><h2 id="guide-title">Hubungkan router jarak jauh</h2><p>Alur SSTP untuk RouterOS 6 dan RouterOS 7.</p></div><button x-ref="guideClose" type="button" class="icon-button" @click="guidePanelOpen=false" aria-label="Tutup panduan">×</button></header>
+      <div class="drawer-scroll guide-content">
+        <div class="guide-status" role="note" x-show="!sstpReady"><strong>Server SSTP belum dikonfigurasi</strong><p>Isi konfigurasi SSTP pada environment Debian untuk mengaktifkan pembuatan akun dan script otomatis.</p></div>
+        <form class="remote-router-form" x-show="sstpReady" @submit.prevent="createRemoteRouter()">
+          <div class="guide-section-head"><small>ROUTER BARU</small><h3>Buat koneksi SSTP</h3></div>
+          <div class="form-grid">
+            <label class="wide">Nama router<input x-model.trim="remoteForm.name" maxlength="80" placeholder="Router kantor cabang" required></label>
+            <label>Versi RouterOS<select x-model.number="remoteForm.routerosVersion"><option :value="6">RouterOS 6</option><option :value="7">RouterOS 7</option></select></label>
+            <label>Username API<input x-model.trim="remoteForm.routerUsername" maxlength="64" autocomplete="username" required></label>
+            <label class="wide">Password API<input type="password" x-model="remoteForm.routerPassword" maxlength="256" autocomplete="new-password" required><small>Password dienkripsi dan dipakai untuk pemeriksaan koneksi.</small></label>
+          </div>
+          <button class="button button-primary remote-create-button" type="submit" :disabled="busy !== ''" x-text="busy === 'remote-create' ? 'Membuat akses...' : 'Buat akses SSTP'"></button>
+        </form>
+        <section class="remote-script" x-show="remoteCreated">
+          <div class="guide-section-head"><small>SCRIPT ROUTEROS</small><h3 x-text="remoteCreated?.name"></h3><p>Salin seluruh script, lalu tempelkan ke Terminal RouterOS. Script rahasia ini hanya ditampilkan selama sesi sekarang.</p></div>
+          <pre><code x-text="remoteCreated?.script"></code></pre>
+          <button class="button button-primary" type="button" @click="copyRemoteScript()">Salin script</button>
+        </section>
+        <section class="remote-router-list" x-show="remoteRouters.length">
+          <div class="guide-section-head"><small>STATUS KONEKSI</small><h3>Router jarak jauh</h3></div>
+          <template x-for="router in remoteRouters" :key="router.id"><div class="remote-router-row"><div><strong x-text="router.name"></strong><small x-text="router.vpnIp + ' · RouterOS ' + router.routerosVersion"></small><span x-text="router.status === 'online' ? 'Online' : (remotePollingId === router.id ? 'Memeriksa otomatis...' : 'Menunggu script dijalankan')" :class="router.status === 'online' ? 'remote-online' : 'remote-waiting'"></span></div><div><button class="button button-secondary" type="button" @click="checkRemoteRouter(router.id)" :disabled="busy !== ''" x-text="router.status === 'online' ? 'Tes ulang' : 'Periksa'"></button><button class="text-button remote-revoke" type="button" @click="deleteRemoteRouter(router.id)" :disabled="busy !== ''">Hapus akun</button></div></div></template>
+        </section>
+        <ol class="guide-steps">
+          <li><span class="guide-step-number">1</span><div><strong>Pilih versi RouterOS</strong><p>Pilih RouterOS 6 atau RouterOS 7.</p></div></li>
+          <li><span class="guide-step-number">2</span><div><strong>Isi nama router</strong><p>Gunakan nama yang mudah dikenali sesuai lokasi router.</p></div></li>
+          <li><span class="guide-step-number">3</span><div><strong>Buat akses SSTP</strong><p>Server membuat akun dan IP SSTP unik untuk router.</p></div></li>
+          <li><span class="guide-step-number">4</span><div><strong>Siapkan script</strong><p>Dashboard menampilkan script RouterOS yang siap digunakan.</p></div></li>
+          <li><span class="guide-step-number">5</span><div><strong>Salin script</strong><p>Gunakan tombol Salin script yang tersedia pada tahap pemasangan.</p></div></li>
+          <li><span class="guide-step-number">6</span><div><strong>Jalankan di MikroTik</strong><p>Tempelkan script ke Terminal RouterOS, lalu jalankan.</p></div></li>
+          <li><span class="guide-step-number">7</span><div><strong>Tunggu pemeriksaan</strong><p>Sistem memeriksa koneksi sampai status Router online.</p></div></li>
+          <li><span class="guide-step-number">8</span><div><strong>Router tersimpan</strong><p>Router yang berhasil terhubung langsung disimpan ke akun pengguna.</p></div></li>
+        </ol>
+      </div>
+      <footer class="drawer-actions"><button class="button button-primary" type="button" @click="guidePanelOpen=false">Tutup panduan</button></footer>
     </section>
   </div>
 

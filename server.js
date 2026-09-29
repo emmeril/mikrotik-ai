@@ -10,6 +10,7 @@ import { deleteRouter, getRouter, listRouters, saveRouter as saveRouterProfile }
 import { authenticateUser, createSession, deleteSession, getSessionUser, registerUser } from './lib/auth.js';
 import { getDatabase } from './lib/database.js';
 import { addConversationEntry, deleteConversation, getConversation, listConversations } from './lib/conversation-store.js';
+import { createRemoteRouter, deleteRemoteRouter, getRemoteRouter, listRemoteRouters, markRemoteRouterOnline, sstpConfig } from './lib/remote-router-store.js';
 import { collectRouterSnapshot, sanitizeRouterRows, snapshotFingerprint, snapshotForAi, validatePlanAgainstSnapshot } from './lib/router-snapshot.js';
 
 const app = express();
@@ -87,7 +88,7 @@ async function resolveConnection(body, userId) {
   return { ...connection, port: 8728 };
 }
 
-app.get('/api/status', (_req, res) => res.json({ aiReady: Boolean(process.env.GEMINI_API_KEY), routerStoreReady: true, registrationEnabled: true, model: geminiModel, provider: 'gemini' }));
+app.get('/api/status', (_req, res) => res.json({ aiReady: Boolean(process.env.GEMINI_API_KEY), routerStoreReady: true, sstpReady: sstpConfig().ready, registrationEnabled: true, model: geminiModel, provider: 'gemini' }));
 
 app.get('/api/auth/me', (req, res) => res.json({ user: getSessionUser(sessionToken(req)) }));
 
@@ -112,6 +113,36 @@ app.get('/api/routers', async (req, res) => {
 
 app.delete('/api/routers/:id', async (req, res) => {
   try { await deleteRouter(req.params.id, req.user.id); res.json({ deleted: true }); }
+  catch (error) { errorResponse(res, error); }
+});
+
+app.get('/api/remote-routers', (req, res) => {
+  try { res.json({ routers: listRemoteRouters(req.user.id) }); }
+  catch (error) { errorResponse(res, error); }
+});
+
+app.post('/api/remote-routers', (req, res) => {
+  try { res.status(201).json({ router: createRemoteRouter({ userId: req.user.id, ...req.body }, appSecret) }); }
+  catch (error) { errorResponse(res, error); }
+});
+
+app.post('/api/remote-routers/:id/check', async (req, res) => {
+  let client;
+  try {
+    const remote = getRemoteRouter(req.params.id, req.user.id, appSecret);
+    client = await connectRouter(remote.connection);
+    const resource = await client.command(['/system/resource/print']);
+    const identity = await client.command(['/system/identity/print']);
+    const info = resource.rows[0] || {};
+    const saved = saveRouterProfile({ id: remote.row.router_id || undefined, userId: req.user.id, name: remote.row.name, connection: remote.connection }, appSecret);
+    markRemoteRouterOnline(remote.row.id, req.user.id, saved.id);
+    res.json({ router: { ...listRemoteRouters(req.user.id).find(item => item.id === remote.row.id), identity: identity.rows[0]?.name || '-', version: info.version || '-', board: info['board-name'] || '-' }, savedRouter: saved });
+  } catch (error) { errorResponse(res, error); }
+  finally { client?.close(); }
+});
+
+app.delete('/api/remote-routers/:id', (req, res) => {
+  try { deleteRemoteRouter(req.params.id, req.user.id, appSecret); res.json({ deleted: true }); }
   catch (error) { errorResponse(res, error); }
 });
 

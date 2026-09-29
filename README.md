@@ -41,6 +41,15 @@ Simpan `APP_SECRET` di tempat aman dan gunakan nilai yang sama setiap kali aplik
 | `GEMINI_API_KEY` | API key Gemini di sisi server. |
 | `GEMINI_MODEL` | Model Gemini untuk structured output. |
 | `GEMINI_FALLBACK_MODELS` | Daftar model cadangan dipisahkan koma ketika model utama sedang penuh. |
+| `SSTP_PUBLIC_HOST` | Hostname DNS-only yang menerima koneksi SSTP langsung ke Debian. |
+| `SSTP_SERVER_IP` | Alamat sisi server PPP, misalnya `10.90.0.1`. |
+| `SSTP_POOL_START` / `SSTP_POOL_END` | Rentang IP unik untuk router jarak jauh. |
+| `SSTP_CHAP_SECRETS_PATH` | Berkas akun yang dibaca accel-ppp dan dikelola aplikasi. |
+| `SSTP_CA_CERT_URL` | URL opsional sertifikat CA yang diimpor oleh script RouterOS. |
+
+## Router jarak jauh melalui SSTP
+
+Menu `GUIDE` dapat membuat akun SSTP, mengalokasikan IP VPN, dan menghasilkan script RouterOS 6/7. Setelah akun dibuat, aplikasi mulai memeriksa API melalui IP VPN secara berkala; router otomatis disimpan ketika koneksi berhasil. Tombol `Periksa` tetap tersedia untuk pemeriksaan manual. Konfigurasi Debian dan accel-ppp tersedia di [`deploy/README.md`](deploy/README.md).
 
 ## Konfigurasi dan pemeriksaan sebelum eksekusi
 

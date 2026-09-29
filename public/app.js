@@ -1,13 +1,15 @@
 window.consoleApp = function () {
   return {
-    menuOpen: false, sidebarCollapsed: false, routerPanelOpen: false, theme: 'light', submittedPrompt: '',
+    menuOpen: false, sidebarCollapsed: false, routerPanelOpen: false, guidePanelOpen: false, theme: 'light', submittedPrompt: '',
     authReady: false, user: null, authMode: 'login', authForm: { name: '', email: '', password: '' },
-    aiReady: false, routerStoreReady: false,
+    aiReady: false, routerStoreReady: false, sstpReady: false,
     busy: '', error: '', notice: '',
     connection: { host: '', port: 8728, username: 'admin', password: '' },
     savedRouters: [], selectedRouterId: '', routerName: '',
     routerInfo: null, testedConnection: '', prompt: '', plan: null, preflight: null, templateType: null, templateValues: {},
     conversationId: '', conversations: [], previousEntries: [], historyReady: false,
+    remoteRouters: [], remoteForm: { name: '', routerosVersion: 7, routerUsername: 'admin', routerPassword: '' }, remoteCreated: null,
+    remotePollingId: '', remotePollTimer: null,
     templateLabels: { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' },
     showConfirm: false, confirmAccepted: false, results: null, planApplied: false,
     async init() {
@@ -20,11 +22,11 @@ window.consoleApp = function () {
       try {
         const response = await fetch('/api/status');
         const status = await response.json();
-        this.aiReady = status.aiReady; this.routerStoreReady = status.routerStoreReady;
+        this.aiReady = status.aiReady; this.routerStoreReady = status.routerStoreReady; this.sstpReady = status.sstpReady;
         const session = await fetch('/api/auth/me').then(value => value.json());
         this.user = session.user;
         if (this.user) {
-          await Promise.all([this.loadRouters(), this.loadConversations()]);
+          await Promise.all([this.loadRouters(), this.loadConversations(), this.loadRemoteRouters()]);
           await this.restoreRouterConnection();
         }
       }
@@ -70,21 +72,84 @@ window.consoleApp = function () {
         const endpoint = this.authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
         const data = await this.request(endpoint, this.authForm);
         this.user = data.user; this.authForm = { name: '', email: '', password: '' };
-        await Promise.all([this.loadRouters(), this.loadConversations()]);
+        await Promise.all([this.loadRouters(), this.loadConversations(), this.loadRemoteRouters()]);
         await this.restoreRouterConnection();
         this.notice = this.authMode === 'register' ? 'Akun berhasil dibuat.' : 'Login berhasil.';
       });
     },
     async logout() {
       await this.run('logout', async () => {
+        this.stopRemotePolling();
         await this.request('/api/auth/logout', {});
-        this.user = null; this.savedRouters = []; this.conversations = []; this.selectedRouterId = ''; this.routerInfo = null;
-        this.conversationId = ''; this.previousEntries = []; this.plan = null; this.notice = ''; this.routerPanelOpen = false;
+        this.user = null; this.savedRouters = []; this.conversations = []; this.remoteRouters = []; this.selectedRouterId = ''; this.routerInfo = null;
+        this.conversationId = ''; this.previousEntries = []; this.plan = null; this.notice = '';
+        this.routerPanelOpen = false; this.guidePanelOpen = false;
       });
     },
     async loadRouters() {
       const data = await this.request('/api/routers', undefined, 'GET');
       this.savedRouters = data.routers;
+    },
+    async loadRemoteRouters() {
+      const data = await this.request('/api/remote-routers', undefined, 'GET');
+      this.remoteRouters = data.routers;
+    },
+    async createRemoteRouter() {
+      await this.run('remote-create', async () => {
+        const data = await this.request('/api/remote-routers', this.remoteForm);
+        this.remoteCreated = data.router;
+        this.remoteForm.routerPassword = '';
+        await this.loadRemoteRouters();
+        this.notice = 'Akses SSTP dibuat. Salin dan jalankan script pada MikroTik.';
+        this.startRemotePolling(data.router.id);
+      });
+    },
+    async copyRemoteScript() {
+      try { await navigator.clipboard.writeText(this.remoteCreated.script); this.notice = 'Script RouterOS disalin.'; }
+      catch { this.error = 'Script tidak dapat disalin otomatis. Pilih teks lalu salin manual.'; }
+    },
+    stopRemotePolling() {
+      if (this.remotePollTimer) clearTimeout(this.remotePollTimer);
+      this.remotePollTimer = null; this.remotePollingId = '';
+    },
+    async finishRemoteCheck(id) {
+      const data = await this.request(`/api/remote-routers/${encodeURIComponent(id)}/check`, {});
+      await Promise.all([this.loadRemoteRouters(), this.loadRouters()]);
+      this.stopRemotePolling();
+      this.notice = `Router ${data.router.identity} terhubung dan tersimpan.`;
+    },
+    startRemotePolling(id) {
+      this.stopRemotePolling();
+      this.remotePollingId = id;
+      let attempts = 0;
+      const poll = async () => {
+        if (!this.user || this.remotePollingId !== id) return;
+        try { await this.finishRemoteCheck(id); }
+        catch {
+          attempts += 1;
+          if (attempts >= 15) {
+            this.stopRemotePolling();
+            this.notice = 'Router belum online. Periksa script dan koneksi, lalu gunakan tombol Periksa.';
+            return;
+          }
+          if (this.remotePollingId === id) this.remotePollTimer = setTimeout(poll, 4000);
+        }
+      };
+      this.remotePollTimer = setTimeout(poll, 3000);
+    },
+    async checkRemoteRouter(id) {
+      this.stopRemotePolling();
+      await this.run('remote-check', () => this.finishRemoteCheck(id));
+    },
+    async deleteRemoteRouter(id) {
+      if (!confirm('Hapus akun SSTP dan profil router tersimpan ini? Koneksi yang sedang aktif perlu diputus melalui accel-ppp.')) return;
+      await this.run('remote-delete', async () => {
+        if (this.remotePollingId === id) this.stopRemotePolling();
+        await this.request(`/api/remote-routers/${encodeURIComponent(id)}`, undefined, 'DELETE');
+        if (this.remoteCreated?.id === id) this.remoteCreated = null;
+        await Promise.all([this.loadRemoteRouters(), this.loadRouters()]);
+        this.notice = 'Akun SSTP dan profil router dihapus. Akun tidak dapat dipakai untuk koneksi ulang.';
+      });
     },
     async loadConversations() {
       const data = await this.request('/api/conversations', undefined, 'GET');
