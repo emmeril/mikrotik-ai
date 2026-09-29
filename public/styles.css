@@ -63,7 +63,7 @@ button:disabled{cursor:not-allowed;opacity:.5}
 .skip-link:focus{top:12px}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 
-.button,.icon-button,.new-chat-button,.conversation-item,.router-context,.menu-button,.tool-button,.send-button,.suggestion-grid button{min-height:44px;border:1px solid transparent;border-radius:8px;background:transparent}
+.button,.icon-button,.new-chat-button,.conversation-item,.router-context,.menu-button,.sidebar-restore,.tool-button,.send-button,.suggestion-grid button{min-height:44px;border:1px solid transparent;border-radius:8px;background:transparent}
 .button{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:9px 16px;font-weight:700}
 .button-primary{border-color:var(--accent);background:var(--accent);color:#fff}
 .button-primary:hover{border-color:var(--accent-hover);background:var(--accent-hover)}
@@ -111,11 +111,14 @@ input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0;accent-c
 .auth-card>.alert{margin-top:22px}
 
 .app-shell{display:flex;height:100%;min-width:0}
-.sidebar{z-index:40;display:flex;width:272px;flex:0 0 272px;min-width:0;flex-direction:column;padding:12px;background:var(--sidebar);color:var(--sidebar-text)}
+.sidebar{z-index:40;display:flex;width:272px;flex:0 0 272px;min-width:0;flex-direction:column;padding:12px;background:var(--sidebar);color:var(--sidebar-text);transition:transform .18s ease}
 .sidebar-head{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 16px}
+.sidebar-head-actions{display:flex;align-items:center}
 .brand{display:flex;align-items:center;gap:10px}
 .sidebar .icon-button:hover{background:var(--sidebar-hover)}
 .sidebar-close{display:none;color:var(--sidebar-text)}
+.sidebar-minimize{color:var(--sidebar-text)}
+.sidebar-panel-icon{width:20px;height:20px;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .new-chat-button{display:flex;align-items:center;gap:11px;width:100%;padding:8px 12px;border-color:#777;background:transparent;color:var(--sidebar-text);text-align:left;font-weight:700}
 .new-chat-button:hover{background:var(--sidebar-hover)}
 .new-chat-button>span:first-child{font-size:20px}
@@ -137,8 +140,11 @@ input[type="checkbox"]{width:18px;min-height:18px;height:18px;padding:0;accent-c
 .sidebar-account .icon-button{color:var(--sidebar-text)}
 
 .chat-shell{display:flex;min-width:0;flex:1;flex-direction:column;background:var(--canvas)}
-.topbar{z-index:20;display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:16px;padding:7px 18px;border-bottom:1px solid var(--line);background:var(--canvas)}
-.menu-button{display:none;align-items:center;gap:7px;padding:0 10px;border-color:var(--line-strong)}
+.topbar{position:relative;z-index:20;display:flex;min-height:58px;align-items:center;justify-content:space-between;gap:16px;padding:7px 18px;border-bottom:1px solid var(--line);background:var(--canvas)}
+.topbar-leading{display:flex;min-width:0;flex:1;align-items:center;gap:12px}
+.menu-button,.sidebar-restore{display:none;align-items:center;gap:7px;padding:0 10px;border-color:var(--line-strong)}
+.sidebar-restore{width:44px;justify-content:center;padding:0}
+.sidebar-restore:hover{background:var(--surface-hover)}
 .chat-title{display:grid;min-width:0}
 .chat-title strong{font-size:15px}
 .chat-title span{overflow:hidden;color:var(--muted);font-size:11px;text-overflow:ellipsis;white-space:nowrap}
@@ -243,10 +249,17 @@ pre{max-width:100%;overflow:auto;border-radius:7px;background:var(--code);color:
 .dialog-copy{color:var(--muted)}
 .dialog-actions{display:flex;justify-content:flex-end;gap:9px;padding:16px 24px;border-top:1px solid var(--line)}
 
+@media(min-width:1001px){
+  .sidebar.sidebar-minimized{width:0;flex-basis:0;padding-inline:0;overflow:hidden;transform:translateX(-100%)}
+  .sidebar-restore.is-visible{display:flex}
+}
+
 @media(max-width:1000px){
   .sidebar{position:fixed;inset:0 auto 0 0;width:280px;transform:translateX(-100%);transition:transform .18s ease}
   .sidebar.sidebar-open{transform:translateX(0)}
   .sidebar-close{display:grid}
+  .sidebar-minimize{display:none}
+  .sidebar-restore{display:none!important}
   .sidebar-backdrop{position:fixed;inset:0;z-index:35;display:block;border:0;background:rgba(0,0,0,.55)}
   .menu-button{display:flex}
   .chat-shell{width:100%}

@@ -20,6 +20,7 @@ Technique reasons:
 
 - Blue is reserved for primary actions, current navigation, and workflow indices so operators can scan the page quickly.
 - The dark sidebar separates conversation controls and router context from the active chat.
+- The desktop sidebar can collapse to give long plans more horizontal room; its restore control remains in the top bar.
 - A working light and dark theme lets operators match long-session viewing conditions.
 - Flat message rows keep the transcript readable; shadows are reserved for the composer and elevated drawers.
 - The four quick prompts share one size because each is an equal starting point for a new request.

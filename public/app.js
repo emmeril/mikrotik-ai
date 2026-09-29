@@ -1,6 +1,6 @@
 window.consoleApp = function () {
   return {
-    menuOpen: false, routerPanelOpen: false, theme: 'light', submittedPrompt: '',
+    menuOpen: false, sidebarCollapsed: false, routerPanelOpen: false, theme: 'light', submittedPrompt: '',
     authReady: false, user: null, authMode: 'login', authForm: { name: '', email: '', password: '' },
     aiReady: false, routerStoreReady: false,
     busy: '', error: '', notice: '',
@@ -14,6 +14,7 @@ window.consoleApp = function () {
       this.theme = savedTheme === 'dark' || savedTheme === 'light'
         ? savedTheme
         : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      this.sidebarCollapsed = localStorage.getItem('mikrotik-ai-sidebar-collapsed') === 'true';
       document.documentElement.dataset.theme = this.theme;
       try {
         const response = await fetch('/api/status');
@@ -30,6 +31,15 @@ window.consoleApp = function () {
       this.theme = this.theme === 'dark' ? 'light' : 'dark';
       document.documentElement.dataset.theme = this.theme;
       localStorage.setItem('mikrotik-ai-theme', this.theme);
+    },
+    minimizeSidebar() {
+      this.sidebarCollapsed = true;
+      this.menuOpen = false;
+      localStorage.setItem('mikrotik-ai-sidebar-collapsed', 'true');
+    },
+    maximizeSidebar() {
+      this.sidebarCollapsed = false;
+      localStorage.setItem('mikrotik-ai-sidebar-collapsed', 'false');
     },
     newConversation() {
       this.prompt = ''; this.submittedPrompt = ''; this.plan = null; this.preflight = null;
