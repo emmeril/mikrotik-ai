@@ -10,7 +10,7 @@
   <script defer src="/app.js"></script>
   <script defer src="/vendor/alpine/cdn.min.js"></script>
 </head>
-<body x-data="consoleApp()" x-init="init()" :data-theme="theme" x-cloak>
+<body x-data="consoleApp()" :data-theme="theme" x-cloak>
   <a class="skip-link" href="#chat-main">Lewati ke percakapan</a>
 
   <div class="boot-screen" x-show="!authReady" role="status"><span class="loading-mark" aria-hidden="true"></span><p>Menyiapkan workspace...</p></div>
@@ -115,7 +115,7 @@
           <label>Port API<input id="port" type="number" min="1" max="65535" x-model.number="connection.port" @input="editConnection()"></label>
           <label>Username<input id="username" x-model.trim="connection.username" @input="editConnection()" autocomplete="username"></label>
           <label class="wide">Password<input id="password" type="password" x-model="connection.password" @input="editConnection()" :placeholder="selectedRouterId ? 'Gunakan password tersimpan' : 'Password RouterOS'" autocomplete="current-password"><small x-show="selectedRouterId">Biarkan kosong untuk memakai password tersimpan.</small></label>
-          <label class="wide">Nama profil router<input id="router-name" x-model.trim="routerName" maxlength="80" placeholder="Router kantor pusat"></label>
+          <label class="wide">Nama profil router<input id="router-name" x-model.trim="routerName" maxlength="80" placeholder="Router kantor pusat"><small>Simpan profil agar koneksi dapat dipulihkan setelah refresh.</small></label>
         </div>
         <div class="check-options"><label><input type="checkbox" x-model="connection.secure" @change="connection.port=connection.secure?8729:8728;editConnection()"> Gunakan API-SSL</label><label x-show="connection.secure"><input type="checkbox" x-model="connection.allowSelfSigned" @change="editConnection()"> Izinkan sertifikat self-signed</label></div>
         <div class="router-summary" x-show="routerInfo"><div><small>IDENTITY</small><strong x-text="routerInfo?.identity"></strong></div><div><small>VERSI</small><strong x-text="routerInfo?.version"></strong></div><div><small>BOARD</small><strong x-text="routerInfo?.board"></strong></div><div><small>UPTIME</small><strong x-text="routerInfo?.uptime"></strong></div></div>

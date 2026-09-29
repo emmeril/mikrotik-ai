@@ -22,7 +22,10 @@ window.consoleApp = function () {
         this.aiReady = status.aiReady; this.routerStoreReady = status.routerStoreReady;
         const session = await fetch('/api/auth/me').then(value => value.json());
         this.user = session.user;
-        if (this.user) await this.loadRouters();
+        if (this.user) {
+          await this.loadRouters();
+          await this.restoreRouterConnection();
+        }
       }
       catch { this.error = 'Status server tidak dapat dibaca.'; }
       finally { this.authReady = true; }
@@ -65,7 +68,9 @@ window.consoleApp = function () {
         const endpoint = this.authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
         const data = await this.request(endpoint, this.authForm);
         this.user = data.user; this.authForm = { name: '', email: '', password: '' };
-        await this.loadRouters(); this.notice = this.authMode === 'register' ? 'Akun berhasil dibuat.' : 'Login berhasil.';
+        await this.loadRouters();
+        await this.restoreRouterConnection();
+        this.notice = this.authMode === 'register' ? 'Akun berhasil dibuat.' : 'Login berhasil.';
       });
     },
     async logout() {
@@ -78,19 +83,43 @@ window.consoleApp = function () {
       const data = await this.request('/api/routers', undefined, 'GET');
       this.savedRouters = data.routers;
     },
+    routerSelectionKey() { return this.user?.id ? `mikrotik-ai-selected-router:${this.user.id}` : ''; },
+    async restoreRouterConnection() {
+      const key = this.routerSelectionKey();
+      const savedId = key ? localStorage.getItem(key) : '';
+      if (!savedId) return;
+      if (!this.savedRouters.some(router => router.id === savedId)) {
+        localStorage.removeItem(key);
+        return;
+      }
+      this.selectedRouterId = savedId;
+      this.selectSavedRouter();
+      await this.connectRouter(false, true);
+    },
     selectSavedRouter() {
       const router = this.savedRouters.find(item => item.id === this.selectedRouterId);
       this.routerInfo = null; this.testedConnection = '';
-      if (!router) return;
+      const key = this.routerSelectionKey();
+      if (!router) {
+        if (key) localStorage.removeItem(key);
+        return;
+      }
+      if (key) localStorage.setItem(key, router.id);
       this.connection = { host: router.host, port: router.port, username: router.username, password: '', secure: router.secure, allowSelfSigned: router.allowSelfSigned };
       this.routerName = router.name;
     },
-    editConnection() { this.selectedRouterId = ''; this.routerInfo = null; this.testedConnection = ''; this.preflight = null; },
+    editConnection() {
+      const key = this.routerSelectionKey();
+      if (key) localStorage.removeItem(key);
+      this.selectedRouterId = ''; this.routerInfo = null; this.testedConnection = ''; this.preflight = null;
+    },
     connectionPayload() { return this.selectedRouterId ? { savedRouterId: this.selectedRouterId } : { connection: this.connection }; },
     async deleteSavedRouter() {
       if (!this.selectedRouterId || !confirm('Hapus profil router tersimpan ini?')) return;
       await this.run('delete-router', async () => {
         await this.request(`/api/routers/${encodeURIComponent(this.selectedRouterId)}`, undefined, 'DELETE');
+        const key = this.routerSelectionKey();
+        if (key) localStorage.removeItem(key);
         this.selectedRouterId = ''; this.routerInfo = null; this.testedConnection = ''; this.routerName = '';
         await this.loadRouters(); this.notice = 'Profil router dihapus.';
       });
@@ -103,7 +132,7 @@ window.consoleApp = function () {
       }
       finally { this.busy = ''; }
     },
-    async connectRouter(save = false) {
+    async connectRouter(save = false, restoring = false) {
       if (save && !this.routerName.trim()) { this.error = 'Isi nama profil router sebelum menyimpan.'; return; }
       await this.run(save ? 'save-router' : 'test', async () => {
         this.routerInfo = null;
@@ -113,8 +142,13 @@ window.consoleApp = function () {
           this.connection.password = '';
           await this.loadRouters();
         }
+        const key = this.routerSelectionKey();
+        if (this.selectedRouterId && key) localStorage.setItem(key, this.selectedRouterId);
         this.testedConnection = this.connectionKey();
-        this.notice = save ? `Router ${this.routerName} berhasil disimpan.` : `Terhubung ke ${this.routerInfo.identity} (${this.routerInfo.version}).`;
+        if (save) this.notice = `Router ${this.routerName} berhasil disimpan.`;
+        else if (restoring) this.notice = `Koneksi ke ${this.routerInfo.identity} dipulihkan.`;
+        else if (this.selectedRouterId) this.notice = `Terhubung ke ${this.routerInfo.identity} (${this.routerInfo.version}).`;
+        else this.notice = `Terhubung ke ${this.routerInfo.identity}. Simpan profil router agar koneksi dapat dipulihkan setelah refresh.`;
       });
     },
     async testConnection() { await this.connectRouter(false); },
