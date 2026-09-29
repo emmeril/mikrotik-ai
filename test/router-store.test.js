@@ -13,12 +13,14 @@ test('menyimpan password router secara terenkripsi', async () => {
   try {
     const owner = registerUser({ name: 'Pemilik Router', email: 'owner@example.test', password: 'password-kuat' });
     const other = registerUser({ name: 'Pengguna Lain', email: 'other@example.test', password: 'password-kuat' });
-    const saved = saveRouter({ userId: owner.id, name: 'Router kantor', connection: { host: '192.168.88.1', port: 8729, username: 'admin', password: 'router-secret', secure: true, allowSelfSigned: true } }, 'dashboard-secret');
+    const saved = saveRouter({ userId: owner.id, name: 'Router kantor', connection: { host: '192.168.88.1', port: 8728, username: 'admin', password: 'router-secret' } }, 'dashboard-secret');
     const raw = await fs.readFile(process.env.DATABASE_PATH);
     assert.equal(raw.includes('router-secret'), false);
     assert.equal(listRouters(owner.id)[0].name, 'Router kantor');
+    assert.equal(listRouters(owner.id)[0].port, 8728);
     assert.deepEqual(listRouters(other.id), []);
     assert.equal(getRouter(saved.id, owner.id, 'dashboard-secret').password, 'router-secret');
+    assert.equal(getRouter(saved.id, owner.id, 'dashboard-secret').port, 8728);
     assert.throws(() => getRouter(saved.id, other.id, 'dashboard-secret'), /tidak ditemukan/);
     deleteRouter(saved.id, owner.id);
     assert.deepEqual(listRouters(owner.id), []);

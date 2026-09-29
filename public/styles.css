@@ -231,8 +231,7 @@ pre{max-width:100%;overflow:auto;border-radius:7px;background:var(--code);color:
 .field-action{display:flex;align-items:flex-end;gap:9px;margin-top:7px}
 .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
 .form-grid .wide{grid-column:1/-1}
-.check-options{display:grid;gap:8px;margin-top:22px}
-.check-options label{display:flex;min-height:44px;align-items:center;gap:9px;font-weight:500}
+.transport-warning{margin:22px 0 0;padding:12px 14px;border:1px solid var(--warning);border-radius:7px;background:var(--warning-soft);color:var(--text);font-size:12px}
 .router-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;margin-top:22px;border:1px solid var(--line);background:var(--line)}
 .router-summary div{min-width:0;padding:13px;background:var(--surface-soft)}
 .router-summary small,.router-summary strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

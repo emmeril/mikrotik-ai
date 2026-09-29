@@ -82,8 +82,8 @@ function requireUser(req, res, next) {
 }
 
 async function resolveConnection(body, userId) {
-  if (body.savedRouterId) return getRouter(String(body.savedRouterId), userId, appSecret);
-  return body.connection || {};
+  const connection = body.savedRouterId ? getRouter(String(body.savedRouterId), userId, appSecret) : body.connection || {};
+  return { ...connection, port: 8728 };
 }
 
 app.get('/api/status', (_req, res) => res.json({ aiReady: Boolean(process.env.GEMINI_API_KEY), routerStoreReady: true, registrationEnabled: true, model: geminiModel, provider: 'gemini' }));

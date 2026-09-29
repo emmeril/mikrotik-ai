@@ -33,7 +33,7 @@ test('login dan pembacaan respons API yang terpotong antar paket', async () => {
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
-    const client = await connectRouter({ host: '127.0.0.1', port: server.address().port, username: 'admin', password: 'secret', secure: false });
+    const client = await connectRouter({ host: '127.0.0.1', port: server.address().port, username: 'admin', password: 'secret' });
     const result = await client.command(['/system/resource/print']);
     assert.equal(result.rows[0].version, '7.20');
     assert.equal(received[0][0], '/login');

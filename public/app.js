@@ -4,7 +4,7 @@ window.consoleApp = function () {
     authReady: false, user: null, authMode: 'login', authForm: { name: '', email: '', password: '' },
     aiReady: false, routerStoreReady: false,
     busy: '', error: '', notice: '',
-    connection: { host: '', port: 8729, username: 'admin', password: '', secure: true, allowSelfSigned: false },
+    connection: { host: '', port: 8728, username: 'admin', password: '' },
     savedRouters: [], selectedRouterId: '', routerName: '',
     routerInfo: null, testedConnection: '', prompt: '', plan: null, preflight: null, templateType: null, templateValues: {},
     templateLabels: { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' },
@@ -105,7 +105,7 @@ window.consoleApp = function () {
         return;
       }
       if (key) localStorage.setItem(key, router.id);
-      this.connection = { host: router.host, port: router.port, username: router.username, password: '', secure: router.secure, allowSelfSigned: router.allowSelfSigned };
+      this.connection = { host: router.host, port: 8728, username: router.username, password: '' };
       this.routerName = router.name;
     },
     editConnection() {

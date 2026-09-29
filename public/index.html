@@ -107,17 +107,16 @@
 
   <div class="drawer-layer" x-show="routerPanelOpen" @keydown.escape.window="routerPanelOpen=false" @click.self="routerPanelOpen=false">
     <section class="router-drawer" role="dialog" aria-modal="true" aria-labelledby="router-title">
-      <header class="drawer-head"><div><small>KONTEKS PERCAKAPAN</small><h2 id="router-title">Koneksi router</h2><p>Gunakan API-SSL untuk membaca dan menerapkan konfigurasi.</p></div><button x-ref="routerClose" type="button" class="icon-button" @click="routerPanelOpen=false" aria-label="Tutup pengaturan router">×</button></header>
+      <header class="drawer-head"><div><small>KONTEKS PERCAKAPAN</small><h2 id="router-title">Koneksi router</h2><p>Menggunakan RouterOS API biasa pada port 8728.</p></div><button x-ref="routerClose" type="button" class="icon-button" @click="routerPanelOpen=false" aria-label="Tutup pengaturan router">×</button></header>
       <div class="drawer-scroll">
         <div class="saved-router-block" x-show="savedRouters.length"><label for="saved-router">Router tersimpan</label><div class="field-action"><select id="saved-router" x-model="selectedRouterId" @change="selectSavedRouter()"><option value="">Pilih router</option><template x-for="router in savedRouters" :key="router.id"><option :value="router.id" x-text="router.name + ' · ' + router.host"></option></template></select><button class="button button-secondary" type="button" @click="deleteSavedRouter()" :disabled="!selectedRouterId || busy !== ''">Hapus</button></div></div>
         <div class="form-grid">
           <label class="wide">IP atau hostname router<input id="host" x-model.trim="connection.host" @input="editConnection()" placeholder="192.168.88.1" autocomplete="off"></label>
-          <label>Port API<input id="port" type="number" min="1" max="65535" x-model.number="connection.port" @input="editConnection()"></label>
-          <label>Username<input id="username" x-model.trim="connection.username" @input="editConnection()" autocomplete="username"></label>
+          <label class="wide">Username<input id="username" x-model.trim="connection.username" @input="editConnection()" autocomplete="username"></label>
           <label class="wide">Password<input id="password" type="password" x-model="connection.password" @input="editConnection()" :placeholder="selectedRouterId ? 'Gunakan password tersimpan' : 'Password RouterOS'" autocomplete="current-password"><small x-show="selectedRouterId">Biarkan kosong untuk memakai password tersimpan.</small></label>
           <label class="wide">Nama profil router<input id="router-name" x-model.trim="routerName" maxlength="80" placeholder="Router kantor pusat"><small>Simpan profil agar koneksi dapat dipulihkan setelah refresh.</small></label>
         </div>
-        <div class="check-options"><label><input type="checkbox" x-model="connection.secure" @change="connection.port=connection.secure?8729:8728;editConnection()"> Gunakan API-SSL</label><label x-show="connection.secure"><input type="checkbox" x-model="connection.allowSelfSigned" @change="editConnection()"> Izinkan sertifikat self-signed</label></div>
+        <p class="transport-warning"><strong>Koneksi tidak terenkripsi.</strong> Gunakan hanya pada jaringan lokal atau tunnel yang tepercaya.</p>
         <div class="router-summary" x-show="routerInfo"><div><small>IDENTITY</small><strong x-text="routerInfo?.identity"></strong></div><div><small>VERSI</small><strong x-text="routerInfo?.version"></strong></div><div><small>BOARD</small><strong x-text="routerInfo?.board"></strong></div><div><small>UPTIME</small><strong x-text="routerInfo?.uptime"></strong></div></div>
       </div>
       <footer class="drawer-actions"><button class="button button-secondary" type="button" @click="testConnection()" :disabled="busy !== ''" x-text="busy === 'test' ? 'Menghubungkan...' : 'Tes koneksi'"></button><button class="button button-primary" type="button" @click="saveRouter()" :disabled="busy !== '' || !routerStoreReady || !routerName.trim()" x-text="busy === 'save-router' ? 'Menyimpan...' : (selectedRouterId ? 'Simpan perubahan' : 'Simpan router')"></button></footer>

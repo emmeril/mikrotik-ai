@@ -10,7 +10,7 @@ Dashboard open source berbasis Express.js, Alpine.js, dan Bootstrap untuk memban
 4. Jalankan `npm run dev`.
 5. Buka `http://127.0.0.1:3000`, daftar, lalu tambahkan router.
 
-Aktifkan layanan RouterOS `api-ssl` pada port 8729, lalu isi host, port, username, dan password pada dashboard. Opsi sertifikat self-signed tersedia untuk router dengan sertifikat yang belum dipercaya sistem. Koneksi API biasa pada port 8728 tersedia untuk jaringan uji yang terisolasi, tetapi lalu lintasnya tidak terenkripsi. Kunci Gemini hanya berada di server.
+Aktifkan layanan RouterOS `api` pada port 8728, lalu isi host, username, dan password pada dashboard. Koneksi API biasa tidak terenkripsi, jadi gunakan hanya pada jaringan lokal yang terisolasi atau melalui tunnel tepercaya. Kunci Gemini hanya berada di server.
 
 Untuk akses publik, atur `HOST=0.0.0.0`, gunakan reverse proxy HTTPS, dan ubah `COOKIE_SECURE=true`. Server dan router harus dapat saling terhubung pada port RouterOS API yang dipilih.
 
