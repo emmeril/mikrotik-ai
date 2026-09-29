@@ -37,9 +37,16 @@
     <aside class="sidebar" :class="{'sidebar-open': menuOpen, 'sidebar-minimized': sidebarCollapsed && !menuOpen}" :aria-hidden="sidebarCollapsed && !menuOpen" :inert="sidebarCollapsed && !menuOpen" aria-label="Navigasi percakapan">
       <div class="sidebar-head"><div class="brand"><span class="brand-mark" aria-hidden="true">M</span><strong>MikroTik AI</strong></div><div class="sidebar-head-actions"><button class="icon-button sidebar-minimize" type="button" @click="minimizeSidebar()" aria-label="Minimalkan sidebar" title="Minimalkan sidebar"><svg class="sidebar-panel-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><path d="M9 3v18"></path></svg></button><button class="icon-button sidebar-close" type="button" @click="menuOpen=false" aria-label="Tutup menu">×</button></div></div>
       <button class="new-chat-button" type="button" @click="newConversation()"><span aria-hidden="true">＋</span><span>Percakapan baru</span></button>
-      <nav class="conversation-nav" aria-label="Percakapan saat ini">
-        <span class="nav-label">Hari ini</span>
-        <button type="button" class="conversation-item active" @click="menuOpen=false"><span class="conversation-title" x-text="submittedPrompt || 'Konfigurasi MikroTik'"></span><small x-text="plan ? 'Rencana siap ditinjau' : 'Percakapan aktif'"></small></button>
+      <nav class="conversation-nav" aria-label="Riwayat percakapan">
+        <span class="nav-label">RIWAYAT</span>
+        <p class="history-state" x-show="!historyReady">Memuat riwayat...</p>
+        <p class="history-state" x-show="historyReady && !conversations.length">Belum ada percakapan.</p>
+        <template x-for="conversation in conversations" :key="conversation.id">
+          <div class="conversation-row" :class="{'active': conversation.id === conversationId}">
+            <button type="button" class="conversation-item" @click="openConversation(conversation.id)"><span class="conversation-title" x-text="conversation.title"></span><small x-text="conversation.entryCount + ' permintaan'"></small></button>
+            <button type="button" class="conversation-delete" @click.stop="deleteConversation(conversation.id)" :aria-label="'Hapus riwayat ' + conversation.title" title="Hapus riwayat">×</button>
+          </div>
+        </template>
       </nav>
       <div class="sidebar-spacer"></div>
       <button class="router-context" type="button" @click="routerPanelOpen=true; menuOpen=false; $nextTick(() => $refs.routerClose?.focus())">
@@ -76,20 +83,28 @@
             </div>
           </section>
 
+          <template x-for="entry in previousEntries" :key="entry.id || entry.prompt">
+            <div class="history-exchange">
+              <article class="message message-user"><div class="message-avatar user-avatar" x-text="user?.name?.slice(0,1).toUpperCase()"></div><div class="message-content"><p x-text="entry.prompt"></p></div></article>
+              <article class="message message-assistant"><div class="assistant-avatar" aria-hidden="true">M</div><div class="message-content history-plan"><small>RENCANA SEBELUMNYA</small><h2 x-text="entry.plan.summary"></h2><details x-show="entry.plan.actions?.length"><summary x-text="entry.plan.actions.length + ' aksi RouterOS'"></summary><ol class="action-list"><template x-for="(action, index) in entry.plan.actions || []" :key="index"><li><span class="action-number" x-text="index + 1"></span><div><strong x-text="action.title"></strong><code x-text="action.cli"></code></div></li></template></ol></details></div></article>
+            </div>
+          </template>
+
           <article class="message message-user" x-show="submittedPrompt"><div class="message-avatar user-avatar" x-text="user?.name?.slice(0,1).toUpperCase()"></div><div class="message-content"><p x-text="submittedPrompt"></p></div></article>
           <article class="message message-assistant" x-show="busy === 'generate'" aria-live="polite"><div class="assistant-avatar" aria-hidden="true">M</div><div class="message-content loading-response"><strong>Membaca konfigurasi router</strong><p>Menyusun rencana dan memeriksa target yang tersedia...</p><span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span></div></article>
 
           <article class="message message-assistant" id="plan" x-show="plan">
             <div class="assistant-avatar" aria-hidden="true">M</div>
             <div class="message-content plan-content">
-              <div class="assistant-heading"><div><small>RENCANA KONFIGURASI</small><h2 x-text="plan?.summary"></h2></div><span class="review-status" x-show="!planApplied">Perlu ditinjau</span><span class="applied-status" x-show="planApplied">Selesai</span></div>
+              <div class="assistant-heading"><div><small>RENCANA KONFIGURASI</small><h2 x-text="plan?.summary"></h2></div><span class="review-status" x-show="!planApplied && !plan?.historyOnly">Perlu ditinjau</span><span class="history-status" x-show="plan?.historyOnly">Riwayat</span><span class="applied-status" x-show="planApplied">Selesai</span></div>
               <div class="plan-guidance" x-show="plan?.warnings?.length || plan?.manual"><strong x-show="plan?.warnings?.length">Perhatian sebelum melanjutkan</strong><ul x-show="plan?.warnings?.length"><template x-for="warning in plan?.warnings || []"><li x-text="warning"></li></template></ul><p x-show="plan?.manual" x-text="plan?.manual"></p></div>
               <ol class="action-list"><template x-for="(action, index) in plan?.actions || []" :key="index"><li><span class="action-number" x-text="index + 1"></span><div><strong x-text="action.title"></strong><code x-text="action.cli"></code></div></li></template></ol>
               <div class="preflight-review" x-show="preflight" :class="preflight?.safe ? 'preflight-safe' : 'preflight-blocked'"><div><strong x-text="preflight?.safe ? 'Pemeriksaan keamanan lulus' : 'Penerapan diblokir'"></strong><span x-show="preflight?.configurationChanged">Konfigurasi berubah sejak rencana dibuat.</span></div><p x-text="preflight?.summary"></p><ul x-show="preflight?.risks?.length"><template x-for="risk in preflight?.risks || []"><li x-text="risk"></li></template></ul><small x-show="preflight?.unavailableSections?.length" x-text="'Bagian yang tidak tersedia: ' + preflight?.unavailableSections.join(', ')"></small></div>
               <details class="script-details" x-show="plan?.script"><summary>Perintah RouterOS</summary><div class="script-toolbar"><span>Salin untuk pemeriksaan manual</span><button class="text-button" type="button" @click="copyScript()">Salin semua</button></div><pre><code x-text="plan?.script"></code></pre></details>
               <div class="execution-results" x-show="results?.length"><h3>Hasil dari RouterOS</h3><template x-for="(result, index) in results || []" :key="index"><div class="execution-result" :class="result.ok ? 'result-ok' : 'result-error'"><strong x-text="result.title"></strong><span x-text="result.ok ? 'Berhasil' : result.error"></span><pre x-show="result.data?.length"><code x-text="JSON.stringify(result.data, null, 2)"></code></pre></div></template></div>
-              <div class="plan-actions"><p>Periksa target dan urutan perintah. Sistem membaca ulang konfigurasi tepat sebelum eksekusi.</p><button class="button button-primary" type="button" @click="showConfirm=true; $nextTick(() => $refs.confirmInput?.focus())" :disabled="busy !== '' || !canApply || !plan?.actions.length || planApplied" x-text="planApplied ? 'Sudah dijalankan' : (plan?.actions.some(action => action.kind === 'read') ? 'Jalankan diagnostik' : 'Tinjau dan terapkan')"></button></div>
-              <p class="inline-note" x-show="!canApply">Tes koneksi router untuk mengaktifkan penerapan otomatis.</p>
+              <p class="history-only-note" x-show="plan?.historyOnly">Rencana dari riwayat hanya untuk dibaca. Kirim instruksi baru untuk membuat rencana yang dapat diterapkan.</p>
+              <div class="plan-actions" x-show="!plan?.historyOnly"><p>Periksa target dan urutan perintah. Sistem membaca ulang konfigurasi tepat sebelum eksekusi.</p><button class="button button-primary" type="button" @click="showConfirm=true; $nextTick(() => $refs.confirmInput?.focus())" :disabled="busy !== '' || !canApply || !plan?.actions.length || planApplied" x-text="planApplied ? 'Sudah dijalankan' : (plan?.actions.some(action => action.kind === 'read') ? 'Jalankan diagnostik' : 'Tinjau dan terapkan')"></button></div>
+              <p class="inline-note" x-show="!canApply && !plan?.historyOnly">Tes koneksi router untuk mengaktifkan penerapan otomatis.</p>
             </div>
           </article>
         </div>

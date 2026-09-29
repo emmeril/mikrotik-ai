@@ -18,6 +18,7 @@ Untuk akses publik, atur `HOST=0.0.0.0`, gunakan reverse proxy HTTPS, dan ubah `
 
 - Registrasi tersedia dari halaman awal. Password akun di-hash dengan scrypt.
 - Data pengguna, sesi, dan router disimpan di SQLite pada `DATABASE_PATH`.
+- Riwayat percakapan disimpan per akun di SQLite, dapat dibuka kembali atau dihapus dari sidebar. Rencana lama ditampilkan dalam mode baca-saja.
 - Setiap query router dibatasi dengan ID pengguna yang sedang login.
 - Sesi disimpan sebagai cookie `HttpOnly` dan token sesi di database hanya disimpan dalam bentuk hash.
 - Rencana AI disimpan sementara selama 15 menit dan hanya dapat dibuka oleh pemiliknya.

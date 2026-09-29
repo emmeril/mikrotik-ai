@@ -5,6 +5,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { authenticateUser, createSession, deleteSession, getSessionUser, registerUser } from '../lib/auth.js';
+import { closeDatabase } from '../lib/database.js';
 
 test('registrasi, login, dan sesi pengguna', async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'mikrotik-auth-'));
@@ -18,6 +19,7 @@ test('registrasi, login, dan sesi pengguna', async () => {
     deleteSession(session.token);
     assert.equal(getSessionUser(session.token), null);
   } finally {
+    closeDatabase();
     delete process.env.DATABASE_PATH;
     await fs.rm(directory, { recursive: true, force: true });
   }

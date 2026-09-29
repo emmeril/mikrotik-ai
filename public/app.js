@@ -7,6 +7,7 @@ window.consoleApp = function () {
     connection: { host: '', port: 8728, username: 'admin', password: '' },
     savedRouters: [], selectedRouterId: '', routerName: '',
     routerInfo: null, testedConnection: '', prompt: '', plan: null, preflight: null, templateType: null, templateValues: {},
+    conversationId: '', conversations: [], previousEntries: [], historyReady: false,
     templateLabels: { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' },
     showConfirm: false, confirmText: '', results: null, planApplied: false,
     async init() {
@@ -23,7 +24,7 @@ window.consoleApp = function () {
         const session = await fetch('/api/auth/me').then(value => value.json());
         this.user = session.user;
         if (this.user) {
-          await this.loadRouters();
+          await Promise.all([this.loadRouters(), this.loadConversations()]);
           await this.restoreRouterConnection();
         }
       }
@@ -46,7 +47,8 @@ window.consoleApp = function () {
     },
     newConversation() {
       this.prompt = ''; this.submittedPrompt = ''; this.plan = null; this.preflight = null;
-      this.results = null; this.planApplied = false; this.error = ''; this.notice = '';
+      this.conversationId = ''; this.previousEntries = []; this.results = null;
+      this.planApplied = false; this.error = ''; this.notice = '';
       this.menuOpen = false;
       this.$nextTick(() => document.getElementById('prompt')?.focus());
     },
@@ -56,7 +58,7 @@ window.consoleApp = function () {
       const response = await fetch(url, options);
       const data = await response.json();
       if (!response.ok) {
-        if (response.status === 401 && !url.startsWith('/api/auth/')) { this.user = null; this.savedRouters = []; }
+        if (response.status === 401 && !url.startsWith('/api/auth/')) { this.user = null; this.savedRouters = []; this.conversations = []; }
         const error = new Error(data.error || 'Permintaan gagal.');
         error.payload = data;
         throw error;
@@ -68,7 +70,7 @@ window.consoleApp = function () {
         const endpoint = this.authMode === 'register' ? '/api/auth/register' : '/api/auth/login';
         const data = await this.request(endpoint, this.authForm);
         this.user = data.user; this.authForm = { name: '', email: '', password: '' };
-        await this.loadRouters();
+        await Promise.all([this.loadRouters(), this.loadConversations()]);
         await this.restoreRouterConnection();
         this.notice = this.authMode === 'register' ? 'Akun berhasil dibuat.' : 'Login berhasil.';
       });
@@ -76,12 +78,41 @@ window.consoleApp = function () {
     async logout() {
       await this.run('logout', async () => {
         await this.request('/api/auth/logout', {});
-        this.user = null; this.savedRouters = []; this.selectedRouterId = ''; this.routerInfo = null; this.plan = null; this.notice = ''; this.routerPanelOpen = false;
+        this.user = null; this.savedRouters = []; this.conversations = []; this.selectedRouterId = ''; this.routerInfo = null;
+        this.conversationId = ''; this.previousEntries = []; this.plan = null; this.notice = ''; this.routerPanelOpen = false;
       });
     },
     async loadRouters() {
       const data = await this.request('/api/routers', undefined, 'GET');
       this.savedRouters = data.routers;
+    },
+    async loadConversations() {
+      const data = await this.request('/api/conversations', undefined, 'GET');
+      this.conversations = data.conversations;
+      this.historyReady = true;
+    },
+    async openConversation(id) {
+      await this.run('history', async () => {
+        const data = await this.request(`/api/conversations/${encodeURIComponent(id)}`, undefined, 'GET');
+        const entries = data.conversation.entries || [];
+        const latest = entries.at(-1);
+        if (!latest) throw new Error('Percakapan ini belum memiliki pesan.');
+        this.conversationId = data.conversation.id;
+        this.previousEntries = entries.slice(0, -1).map(entry => ({ ...entry, plan: { ...entry.plan, historyOnly: true } }));
+        this.submittedPrompt = latest.prompt;
+        this.plan = { ...latest.plan, historyOnly: true };
+        this.prompt = ''; this.preflight = null; this.results = null; this.planApplied = false; this.menuOpen = false;
+        this.$nextTick(() => document.getElementById('chat-main')?.scrollTo({ top: 0, behavior: 'smooth' }));
+      });
+    },
+    async deleteConversation(id) {
+      if (!confirm('Hapus riwayat percakapan ini?')) return;
+      await this.run('delete-history', async () => {
+        await this.request(`/api/conversations/${encodeURIComponent(id)}`, undefined, 'DELETE');
+        if (this.conversationId === id) this.newConversation();
+        await this.loadConversations();
+        this.notice = 'Riwayat percakapan dihapus.';
+      });
     },
     routerSelectionKey() { return this.user?.id ? `mikrotik-ai-selected-router:${this.user.id}` : ''; },
     async restoreRouterConnection() {
@@ -156,21 +187,31 @@ window.consoleApp = function () {
     connectionKey() { return JSON.stringify({ selectedRouterId: this.selectedRouterId, connection: this.connection }); },
     get canApply() { return Boolean(this.routerInfo && this.testedConnection === this.connectionKey()); },
     async generate() {
+      const requestedPrompt = this.prompt.trim();
+      const previous = this.plan && this.submittedPrompt ? { prompt: this.submittedPrompt, plan: { ...this.plan, historyOnly: true } } : null;
       await this.run('generate', async () => {
-        this.submittedPrompt = this.prompt.trim();
-        this.plan = await this.request('/api/plan/generate', { prompt: this.prompt, version: this.routerInfo?.version, ...this.connectionPayload() });
+        const data = await this.request('/api/plan/generate', { prompt: requestedPrompt, conversationId: this.conversationId || undefined, version: this.routerInfo?.version, ...this.connectionPayload() });
+        const { conversationId, ...plan } = data;
+        if (previous) this.previousEntries.push(previous);
+        this.conversationId = conversationId; this.submittedPrompt = requestedPrompt; this.plan = plan; this.prompt = '';
         this.results = null; this.preflight = null; this.planApplied = false;
+        await this.loadConversations();
         this.notice = 'Rencana siap ditinjau.';
         this.$nextTick(() => document.getElementById('plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       });
     },
     openTemplate(type) { this.templateType = type; this.templateValues = {}; this.error = ''; },
     async createTemplate() {
+      const requestedPrompt = `Formulir cepat: ${this.templateLabels[this.templateType]}`;
+      const previous = this.plan && this.submittedPrompt ? { prompt: this.submittedPrompt, plan: { ...this.plan, historyOnly: true } } : null;
       await this.run('template', async () => {
-        this.submittedPrompt = `Formulir cepat: ${this.templateLabels[this.templateType]}`;
-        this.plan = await this.request('/api/plan/template', { type: this.templateType, values: this.templateValues });
+        const data = await this.request('/api/plan/template', { type: this.templateType, values: this.templateValues, conversationId: this.conversationId || undefined });
+        const { conversationId, ...plan } = data;
+        if (previous) this.previousEntries.push(previous);
+        this.conversationId = conversationId; this.submittedPrompt = requestedPrompt; this.plan = plan;
         this.results = null; this.preflight = null; this.planApplied = false;
         this.templateType = null;
+        await this.loadConversations();
         this.notice = 'Rencana siap ditinjau.';
         this.$nextTick(() => document.getElementById('plan')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       });

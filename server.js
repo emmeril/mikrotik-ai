@@ -9,6 +9,7 @@ import { generateRouterPlan, reviewRouterPlan } from './lib/gemini.js';
 import { deleteRouter, getRouter, listRouters, saveRouter as saveRouterProfile } from './lib/router-store.js';
 import { authenticateUser, createSession, deleteSession, getSessionUser, registerUser } from './lib/auth.js';
 import { getDatabase } from './lib/database.js';
+import { addConversationEntry, deleteConversation, getConversation, listConversations } from './lib/conversation-store.js';
 import { collectRouterSnapshot, sanitizeRouterRows, snapshotFingerprint, snapshotForAi, validatePlanAgainstSnapshot } from './lib/router-snapshot.js';
 
 const app = express();
@@ -114,6 +115,21 @@ app.delete('/api/routers/:id', async (req, res) => {
   catch (error) { errorResponse(res, error); }
 });
 
+app.get('/api/conversations', (req, res) => {
+  try { res.json({ conversations: listConversations(req.user.id) }); }
+  catch (error) { errorResponse(res, error); }
+});
+
+app.get('/api/conversations/:id', (req, res) => {
+  try { res.json({ conversation: getConversation(req.params.id, req.user.id) }); }
+  catch (error) { errorResponse(res, error); }
+});
+
+app.delete('/api/conversations/:id', (req, res) => {
+  try { deleteConversation(req.params.id, req.user.id); res.json({ deleted: true }); }
+  catch (error) { errorResponse(res, error); }
+});
+
 app.post('/api/router/test', async (req, res) => {
   let client;
   try {
@@ -138,7 +154,10 @@ app.post('/api/plan/template', (req, res) => {
       route: { summary: 'Menambahkan static route.', actions: [{ type: 'add_static_route', dstAddress: values.dstAddress, gateway: values.gateway }] }
     };
     if (!Object.hasOwn(templates, type)) throw new Error('Template tidak tersedia.');
-    res.json(savePlan(templates[type], req.user.id));
+    const plan = savePlan(templates[type], req.user.id);
+    const labels = { identity: 'Nama router', dns: 'DNS server', address: 'Alamat IP', route: 'Static route' };
+    const conversation = addConversationEntry({ userId: req.user.id, conversationId: req.body.conversationId, prompt: `Formulir cepat: ${labels[type]}`, plan });
+    res.json({ ...plan, conversationId: conversation.id });
   } catch (error) { errorResponse(res, error); }
 });
 
@@ -154,7 +173,9 @@ app.post('/api/plan/generate', async (req, res) => {
     client = await connectRouter(await resolveConnection(req.body, req.user.id));
     const snapshot = await collectRouterSnapshot(client);
     const raw = await generateRawPlan(prompt, snapshot);
-    res.json(savePlan(raw, req.user.id, { baselineFingerprint: snapshotFingerprint(snapshot) }));
+    const plan = savePlan(raw, req.user.id, { baselineFingerprint: snapshotFingerprint(snapshot) });
+    const conversation = addConversationEntry({ userId: req.user.id, conversationId: req.body.conversationId, prompt, plan });
+    res.json({ ...plan, conversationId: conversation.id });
   } catch (error) { errorResponse(res, error); }
   finally { client?.close(); }
 });
