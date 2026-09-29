@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MikroTik AI Console</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="/styles.css">
+  <script defer src="/app.js"></script>
+  <script defer src="/vendor/alpine/cdn.min.js"></script>
+</head>
+<body x-data="consoleApp()" x-init="init()" x-cloak>
+  <a class="skip-link" href="#overview">Lewati ke konten utama</a>
+  <div class="auth-page" x-show="authReady && !user">
+    <section class="auth-card" aria-labelledby="auth-title">
+      <div class="auth-brand"><span class="brand-mark">M</span><div><strong>MikroTik AI</strong><small>Network assistant</small></div></div>
+      <div><p class="eyebrow" x-text="authMode === 'register' ? 'BUAT WORKSPACE' : 'MASUK KE WORKSPACE'"></p><h1 id="auth-title" x-text="authMode === 'register' ? 'Daftarkan akun Anda' : 'Selamat datang kembali'"></h1><p class="auth-intro" x-text="authMode === 'register' ? 'Tambahkan router milik Anda dan kelola dengan bantuan AI.' : 'Masuk untuk membuka router dan rencana konfigurasi Anda.'"></p></div>
+      <div class="error-box" role="alert" x-show="error"><strong>Terjadi masalah</strong><span x-text="error"></span><button type="button" @click="error=''" aria-label="Tutup pesan">×</button></div>
+      <form @submit.prevent="submitAuth()" class="auth-form">
+        <div x-show="authMode === 'register'"><label class="form-label" for="auth-name">Nama</label><input id="auth-name" class="form-control" x-model.trim="authForm.name" autocomplete="name" minlength="2" maxlength="80" :required="authMode === 'register'"></div>
+        <div><label class="form-label" for="auth-email">Email</label><input id="auth-email" class="form-control" type="email" x-model.trim="authForm.email" autocomplete="email" required></div>
+        <div><label class="form-label" for="auth-password">Password</label><input id="auth-password" class="form-control" type="password" x-model="authForm.password" :autocomplete="authMode === 'register' ? 'new-password' : 'current-password'" minlength="10" required><small x-show="authMode === 'register'">Minimal 10 karakter.</small></div>
+        <button class="btn btn-primary auth-submit" type="submit" :disabled="busy !== ''" x-text="busy === 'auth' ? 'Memproses...' : (authMode === 'register' ? 'Buat akun' : 'Masuk')"></button>
+      </form>
+      <button class="auth-switch" type="button" @click="authMode = authMode === 'register' ? 'login' : 'register'; error=''" x-text="authMode === 'register' ? 'Sudah punya akun? Masuk' : 'Belum punya akun? Daftar'"></button>
+    </section>
+    <aside class="auth-context">
+      <div class="auth-context-inner"><span class="context-code">MIKROTIK / GEMINI / SELF-HOSTED</span><h2>Operasikan router dengan konteks yang lengkap.</h2><p>AI membaca konfigurasi existing, menyusun perubahan, lalu memeriksanya kembali sebelum eksekusi.</p><div class="auth-proof"><div><b>01</b><span><strong>Terisolasi per akun</strong><small>Router dan rencana hanya untuk pemiliknya.</small></span></div><div><b>02</b><span><strong>Review sebelum eksekusi</strong><small>Semua perintah terlihat sebelum dikirim.</small></span></div><div><b>03</b><span><strong>Kredensial terenkripsi</strong><small>Password router tidak dikirim kembali ke browser.</small></span></div></div></div>
+      <div class="auth-version"><span class="status-dot"></span> RouterOS 6 &amp; 7</div>
+    </aside>
+  </div>
+
+  <div class="app-shell" x-show="authReady && user">
+    <button class="sidebar-backdrop" x-show="menuOpen" @click="menuOpen=false" type="button" aria-label="Tutup menu"></button>
+    <aside class="sidebar" :class="{'sidebar-open': menuOpen}" aria-label="Navigasi utama">
+      <div class="brand"><span class="brand-mark">M</span><span><strong>MikroTik</strong><small>AI Console</small></span></div>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav">
+        <a href="#overview" class="active" @click="menuOpen=false"><span class="nav-glyph">00</span><span>Ikhtisar</span></a>
+        <a href="#connection" @click="menuOpen=false"><span class="nav-glyph">01</span><span>Koneksi router</span></a>
+        <a href="#assistant" @click="menuOpen=false"><span class="nav-glyph">02</span><span>Asisten konfigurasi</span></a>
+        <a href="#plan" @click="menuOpen=false"><span class="nav-glyph">03</span><span>Review &amp; eksekusi</span></a>
+      </nav>
+      <div class="sidebar-bottom"><div><span class="status-dot"></span><strong>System ready</strong></div><small x-text="aiReady ? 'Gemini terhubung' : 'Gemini belum dikonfigurasi'"></small></div>
+    </aside>
+
+    <div class="main-area">
+      <header class="topbar">
+        <div class="d-flex align-items-center gap-3">
+          <button class="menu-button" type="button" @click="menuOpen=!menuOpen" aria-label="Buka menu"><span aria-hidden="true">☰</span><small>Menu</small></button>
+          <span class="breadcrumb-text">MikroTik AI <span>/</span> Operations</span>
+        </div>
+        <div class="user-menu"><div class="user-avatar" x-text="user?.name?.slice(0,1).toUpperCase()"></div><span><strong x-text="user?.name"></strong><small x-text="user?.email"></small></span><button type="button" class="btn btn-light btn-sm" @click="logout()" :disabled="busy === 'logout'">Keluar</button></div>
+      </header>
+
+      <main class="content" id="overview">
+        <div class="page-heading">
+          <div><p class="eyebrow">NETWORK OPERATIONS</p><h1>Kelola router dari satu workspace.</h1><p class="intro">Hubungkan MikroTik, jelaskan perubahan yang dibutuhkan, lalu tinjau setiap perintah sebelum dijalankan.</p></div>
+          <div class="workspace-state"><small>STATUS SESI</small><strong><span class="pulse" :class="{'is-idle': !routerInfo}"></span><span x-text="routerInfo ? 'Router terhubung' : 'Menunggu koneksi'"></span></strong><span x-show="routerInfo" x-text="routerInfo?.identity + ' · RouterOS ' + routerInfo?.version"></span></div>
+        </div>
+
+        <div class="notice" role="status" x-show="notice" x-transition x-text="notice"></div>
+        <div class="error-box" role="alert" x-show="error" x-transition><strong>Terjadi masalah</strong><span x-text="error"></span><button type="button" @click="error=''" aria-label="Tutup pesan">×</button></div>
+
+        <section class="section-block" id="connection" aria-labelledby="connection-title">
+          <div class="section-heading"><div><span class="section-index">LANGKAH 01</span><h2 id="connection-title">Koneksi router</h2><p>Gunakan API-SSL untuk membaca dan menerapkan konfigurasi.</p></div><span class="section-note">Kredensial tersimpan terenkripsi</span></div>
+          <div class="panel connection-panel">
+            <div class="saved-router-row" x-show="savedRouters.length"><div class="saved-router-select"><label class="form-label" for="saved-router">Router tersimpan</label><select id="saved-router" class="form-select" x-model="selectedRouterId" @change="selectSavedRouter()"><option value="">Pilih router</option><template x-for="router in savedRouters" :key="router.id"><option :value="router.id" x-text="router.name + ' · ' + router.host"></option></template></select></div><button class="btn btn-light" type="button" @click="deleteSavedRouter()" :disabled="!selectedRouterId || busy !== ''">Hapus profil</button></div>
+            <div class="row g-3">
+              <div class="col-md-4"><label class="form-label" for="host">IP / hostname router</label><input id="host" class="form-control" x-model.trim="connection.host" @input="editConnection()" placeholder="192.168.88.1" autocomplete="off"></div>
+              <div class="col-md-2"><label class="form-label" for="port">Port API</label><input id="port" class="form-control" type="number" min="1" max="65535" x-model.number="connection.port" @input="editConnection()"></div>
+              <div class="col-md-3"><label class="form-label" for="username">Username</label><input id="username" class="form-control" x-model.trim="connection.username" @input="editConnection()" autocomplete="username"></div>
+              <div class="col-md-3"><label class="form-label" for="password">Password</label><input id="password" class="form-control" type="password" x-model="connection.password" @input="editConnection()" :placeholder="selectedRouterId ? 'Tersimpan — isi untuk profil baru' : 'Password RouterOS'" autocomplete="current-password"><small class="field-hint" x-show="selectedRouterId">Kosongkan untuk menggunakan password yang tersimpan.</small></div>
+            </div>
+            <div class="save-router-name"><label class="form-label" for="router-name">Nama profil router</label><input id="router-name" class="form-control" x-model.trim="routerName" maxlength="80" placeholder="Router kantor pusat"></div>
+            <div class="connection-footer">
+              <div class="connection-options"><label><input type="checkbox" x-model="connection.secure" @change="connection.port=connection.secure?8729:8728;editConnection()"> Gunakan API-SSL (disarankan)</label><label x-show="connection.secure"><input type="checkbox" x-model="connection.allowSelfSigned" @change="editConnection()"> Izinkan sertifikat self-signed</label></div>
+              <div class="connection-actions"><button class="btn btn-light" type="button" @click="testConnection()" :disabled="busy !== ''"><span x-text="busy === 'test' ? 'Menghubungkan...' : 'Tes koneksi'"></span></button><button class="btn btn-primary" type="button" @click="saveRouter()" :disabled="busy !== '' || !routerStoreReady || !routerName.trim()"><span x-text="busy === 'save-router' ? 'Menyimpan...' : (selectedRouterId ? 'Simpan perubahan' : 'Simpan router')"></span></button></div>
+            </div>
+          </div>
+          <div class="router-strip" x-show="routerInfo"><div><small>IDENTITY</small><strong x-text="routerInfo?.identity"></strong></div><div><small>VERSI</small><strong x-text="routerInfo?.version"></strong></div><div><small>BOARD</small><strong x-text="routerInfo?.board"></strong></div><div><small>UPTIME</small><strong x-text="routerInfo?.uptime"></strong></div></div>
+        </section>
+
+        <section class="section-block" id="assistant" aria-labelledby="assistant-title">
+          <div class="section-heading"><div><span class="section-index">LANGKAH 02</span><h2 id="assistant-title">Instruksi untuk Gemini</h2><p>Tulis tujuan jaringan. Gemini menyusun action berdasarkan konfigurasi existing.</p></div><span class="section-note" x-text="!aiReady ? 'Isi GEMINI_API_KEY untuk memakai prompt AI' : (canApply ? 'Siap membaca konfigurasi existing' : 'Selesaikan koneksi router dahulu')"></span></div>
+          <div class="panel prompt-panel">
+            <div class="prompt-label"><label class="form-label" for="prompt">Instruksi konfigurasi</label><span><i></i> Gemini</span></div>
+            <textarea id="prompt" class="form-control prompt-input" x-model="prompt" maxlength="1500" placeholder="Contoh: Tambahkan IP 192.168.10.1/24 ke ether2 dan gunakan DNS 1.1.1.1, 8.8.8.8"></textarea>
+            <div class="prompt-footer"><span>Gemini membaca konfigurasi router sebelum menyusun perintah.</span><button class="btn btn-primary" type="button" @click="generate()" :disabled="busy !== '' || !aiReady || !canApply"><span x-text="busy === 'generate' ? 'Membaca & menganalisis...' : 'Buat rencana' "></span><span class="btn-arrow">→</span></button></div>
+          </div>
+          <div class="template-area"><div class="template-title">Atau mulai dari formulir cepat</div><div class="template-grid">
+            <button type="button" class="template-card" @click="openTemplate('identity')"><span class="template-icon">ID</span><strong>Nama router</strong><small>Ubah system identity</small></button>
+            <button type="button" class="template-card" @click="openTemplate('dns')"><span class="template-icon">DNS</span><strong>DNS server</strong><small>Atur resolver IPv4</small></button>
+            <button type="button" class="template-card" @click="openTemplate('address')"><span class="template-icon">IP</span><strong>Alamat IP</strong><small>Tambahkan IP ke interface</small></button>
+            <button type="button" class="template-card" @click="openTemplate('route')"><span class="template-icon">RT</span><strong>Static route</strong><small>Atur tujuan &amp; gateway</small></button>
+          </div></div>
+        </section>
+
+        <section class="section-block" id="plan" aria-labelledby="plan-title">
+          <div class="section-heading"><div><span class="section-index">LANGKAH 03</span><h2 id="plan-title">Review &amp; eksekusi</h2><p>Pastikan target dan urutan perintah sesuai sebelum diterapkan.</p></div><span class="section-note" x-show="plan" x-text="plan?.actions.length + ' aksi siap ditinjau'"></span></div>
+          <div class="panel empty-plan" x-show="!plan"><span class="empty-symbol">▤</span><h3>Belum ada rencana</h3><p>Buat instruksi dengan AI atau gunakan formulir cepat. Perintah RouterOS akan muncul di sini sebelum diterapkan.</p></div>
+          <div class="panel plan-panel" x-show="plan">
+            <div class="plan-summary"><div><span class="review-label">RENCANA SAAT INI</span><h3 x-text="plan?.summary"></h3></div><span class="review-badge">Perlu ditinjau</span></div>
+            <div class="plan-guidance" x-show="plan?.warnings?.length || plan?.manual"><div x-show="plan?.warnings?.length"><strong>PERINGATAN</strong><ul><template x-for="warning in plan?.warnings || []"><li x-text="warning"></li></template></ul></div><p x-show="plan?.manual" x-text="plan?.manual"></p></div>
+            <ol class="action-list"><template x-for="(action, index) in plan?.actions || []" :key="index"><li><span class="action-number" x-text="String(index+1).padStart(2,'0')"></span><div><strong x-text="action.title"></strong><code x-text="action.cli"></code></div></li></template></ol>
+            <div class="preflight-review" x-show="preflight" :class="preflight?.safe ? 'preflight-safe' : 'preflight-blocked'"><div class="preflight-head"><strong x-text="preflight?.safe ? 'Pemeriksaan keamanan lulus' : 'Penerapan diblokir'"></strong><span x-show="preflight?.configurationChanged">Konfigurasi berubah sejak rencana dibuat</span></div><p x-text="preflight?.summary"></p><ul x-show="preflight?.risks?.length"><template x-for="risk in preflight?.risks || []"><li x-text="risk"></li></template></ul><small x-show="preflight?.unavailableSections?.length" x-text="'Bagian yang tidak tersedia: ' + preflight?.unavailableSections.join(', ')"></small></div>
+            <div class="script-header"><strong>Perintah terminal</strong><button class="text-button" type="button" @click="copyScript()">Salin semua</button></div>
+            <pre class="script-box"><code x-text="plan?.script"></code></pre>
+            <div class="execution-results" x-show="results?.length"><div class="script-header"><strong>Hasil dari RouterOS</strong></div><template x-for="(result, index) in results || []" :key="index"><div class="execution-result" :class="result.ok ? 'result-ok' : 'result-error'"><strong x-text="result.title"></strong><span x-text="result.ok ? 'Berhasil' : result.error"></span><pre x-show="result.data?.length"><code x-text="JSON.stringify(result.data, null, 2)"></code></pre></div></template></div>
+            <div class="plan-actions"><p>Periksa urutan dan dampaknya. Aksi diagnostik hanya membaca snapshot data, sedangkan perubahan konfigurasi dikirim satu per satu.</p><button class="btn btn-primary" type="button" @click="showConfirm=true" :disabled="busy !== '' || !canApply || !plan?.actions.length || planApplied" x-text="planApplied ? 'Sudah dijalankan' : (plan?.actions.some(action => action.kind === 'read') ? 'Jalankan diagnostik' : 'Terapkan ke router')"></button></div>
+            <p class="small-note" x-show="!canApply">Tes koneksi router dulu untuk mengaktifkan penerapan otomatis.</p>
+          </div>
+        </section>
+        <footer class="footer"><span>MikroTik AI Console</span><span>Self-hosted network operations</span></footer>
+      </main>
+    </div>
+  </div>
+
+  <div class="modal-shade" x-show="templateType" @keydown.escape.window="templateType=null" role="presentation"><div class="dialog panel" role="dialog" aria-modal="true" aria-labelledby="template-dialog-title"><div class="dialog-head"><div><span class="section-index">FORMULIR CEPAT</span><h2 id="template-dialog-title" x-text="templateLabels[templateType]"></h2></div><button type="button" class="close-button" @click="templateType=null" aria-label="Tutup">×</button></div>
+    <div x-show="templateType==='identity'"><label class="form-label">Nama baru</label><input class="form-control" x-model="templateValues.name" placeholder="router-kantor"></div>
+    <div x-show="templateType==='dns'"><label class="form-label">DNS IPv4, pisahkan dengan koma</label><input class="form-control" x-model="templateValues.servers" placeholder="1.1.1.1, 8.8.8.8"></div>
+    <div x-show="templateType==='address'" class="row g-3"><div class="col-sm-7"><label class="form-label">Alamat IP / CIDR</label><input class="form-control" x-model="templateValues.address" placeholder="192.168.10.1/24"></div><div class="col-sm-5"><label class="form-label">Interface</label><input class="form-control" x-model="templateValues.interface" placeholder="ether2"></div></div>
+    <div x-show="templateType==='route'" class="row g-3"><div class="col-sm-7"><label class="form-label">Jaringan tujuan</label><input class="form-control" x-model="templateValues.dstAddress" placeholder="0.0.0.0/0"></div><div class="col-sm-5"><label class="form-label">Gateway</label><input class="form-control" x-model="templateValues.gateway" placeholder="192.168.1.1"></div></div>
+    <div class="dialog-actions"><button type="button" class="btn btn-light" @click="templateType=null">Batal</button><button type="button" class="btn btn-primary" @click="createTemplate()" :disabled="busy !== ''">Buat rencana</button></div>
+  </div></div>
+
+  <div class="modal-shade" x-show="showConfirm" @keydown.escape.window="showConfirm=false" role="presentation"><div class="dialog panel" role="dialog" aria-modal="true" aria-labelledby="confirm-title"><div class="dialog-head"><div><span class="section-index">KONFIRMASI</span><h2 id="confirm-title" x-text="plan?.actions.some(action => action.kind === 'read') ? 'Jalankan diagnostik?' : 'Terapkan konfigurasi?'"></h2></div><button type="button" class="close-button" @click="showConfirm=false" aria-label="Tutup">×</button></div><p class="dialog-copy"><strong x-text="plan?.actions.length"></strong> aksi direncanakan untuk <strong x-text="routerInfo?.identity"></strong>. Sebelum eksekusi, konfigurasi existing akan dibaca ulang dan dianalisis Gemini. Perintah hanya dijalankan jika pemeriksaan menyatakan aman.</p><label class="form-label" for="confirm-text">Ketik TERAPKAN untuk memulai pemeriksaan</label><input id="confirm-text" class="form-control" x-model="confirmText" autocomplete="off"><div class="dialog-actions"><button type="button" class="btn btn-light" @click="showConfirm=false;confirmText=''">Batal</button><button type="button" class="btn btn-danger" @click="applyPlan()" :disabled="confirmText !== 'TERAPKAN' || busy !== ''"><span x-text="busy === 'apply' ? 'Memeriksa konfigurasi...' : 'Periksa & terapkan'"></span></button></div></div></div>
+</body>
+</html>
